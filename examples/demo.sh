@@ -24,3 +24,13 @@ assert result['selection']['best_round']==0
 assert result['model']['trees']==[]
 print('opposite-label validation rejects fitted trees and retains the initial model')
 PY
+python -m boostlab train --input examples/train.json --rounds 6 --min-leaf 2 --patience 6 --leaf-mode newton --l2 1 >/tmp/boostlab-newton.json
+python - <<'PY'
+import json
+from boostlab import predict
+with open('/tmp/boostlab-newton.json') as source:report=json.load(source)
+assert report['model']['version']=='boostlab_v2'
+assert predict(report['model'],[[1]])['probabilities'][0]<.5
+assert predict(report['model'],[[10]])['probabilities'][0]>.5
+print('Newton v2 artifact round trip predicts both sides')
+PY
