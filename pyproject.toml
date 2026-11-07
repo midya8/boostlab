@@ -1,0 +1,10 @@
+[project]
+name = "boostlab"
+version = "0.1.0"
+description = "First-order Bernoulli gradient boosting with validation prefix selection"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
