@@ -30,13 +30,18 @@ def nodes(tree):
 def run_demo():
     train,val,test=fixture();payload={'feature_names':['a','b'],'train':train,'validation':val}
     arms={}
-    for depth in (1,2):
-        result=fit(payload,rounds=80,depth=depth,learning_rate=.5,min_leaf=5,patience=80)
+    for name,depth,mode,l2 in [('depth_1',1,'mean',0),('depth_2',2,'mean',0),
+                                ('newton_depth_2',2,'newton',1)]:
+        result=fit(payload,rounds=80,depth=depth,learning_rate=.5,min_leaf=5,patience=80,
+                   leaf_mode=mode,l2=l2,max_leaf_step=3)
         model=result['model']
-        arms['depth_'+str(depth)]={'selected_rounds':result['selection']['best_round'],
+        arms[name]={'selected_rounds':result['selection']['best_round'],
                                  'fitted_rounds':result['selection']['fitted_rounds'],
                                  'retained_nodes':sum(nodes(t) for t in model['trees']),
                                  'last_checkpoint_nodes':sum(nodes(t) for t in result['last_fitted_model']['trees']),
+                                 'leaf_mode':mode,'l2':l2,
+                                 'newton_leaves_clipped':sum(h.get('newton_leaves',{}).get('clipped',0) for h in result['history']),
+                                 'newton_zero_denominators':sum(h.get('newton_leaves',{}).get('zero_denominator',0) for h in result['history']),
                                  'last_checkpoint_test':metrics(result['last_fitted_model'],test),
                                  'train':metrics(model,train),'validation':metrics(model,val),
                                  'test':metrics(model,test)}
@@ -47,6 +52,7 @@ def run_demo():
             'initial_constant':{'test':metrics(initial,test)},'arms':arms,
             'scope':'Selected synthetic XOR-sign fixture with 5% independently flipped labels. '
                     'Train builds trees, validation selects the best prefix, test is report-only. '
-                    'Both depths use the same 80-round cap/rate/min_leaf/patience=80, not equal node capacity. '
+                    'All arms use the same 80-round cap/rate/min_leaf/patience=80, not equal node capacity. '
+                    'Newton depth-2 additionally uses L2=1 and leaf step cap 3, on residual-SSE splits. '
                     'Descriptive development comparison, not causal attribution, held-out external benchmark '
-                    'or proof that depth 2 is generally better. No hyperparameter sweep was used for this fixture.'}
+                    'or proof that depth 2 or Newton leaves are generally better. No hyperparameter sweep was used for this fixture.'}
