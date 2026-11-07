@@ -76,25 +76,64 @@ def _tree_value(tree, row):
     return tree['value']
 
 
-def _validate_tree(tree, width, remaining=3):
+
+def _newton_refine(tree, x, residuals, hessians, l2, max_leaf_step):
+    """Refine a residual-SSE tree's leaves; no Hessian split optimization."""
+    counts = {'clipped': 0, 'zero_denominator': 0}
+    def visit(node, indices):
+        if 'value' in node:
+            numerator = math.fsum(residuals[i] for i in indices)
+            denominator = math.fsum(hessians[i] for i in indices) + l2
+            if denominator == 0:
+                counts['zero_denominator'] += 1
+                value = 0.
+            else:
+                # Compare before dividing, avoiding an unbounded intermediate.
+                if abs(numerator) > max_leaf_step * denominator:
+                    counts['clipped'] += 1
+                    value = math.copysign(max_leaf_step, numerator)
+                else:
+                    value = numerator / denominator
+            return {'value': value}
+        j = node['feature']; t = node['threshold']
+        left = [i for i in indices if x[i][j] <= t]
+        right = [i for i in indices if x[i][j] > t]
+        return {'feature': j, 'threshold': t,
+                'left': visit(node['left'], left), 'right': visit(node['right'], right)}
+    return visit(tree, list(range(len(x)))), counts
+
+def _validate_tree(tree, width, remaining=3, leaf_bound=1.):
     if not isinstance(tree, dict):
         raise ValueError('tree must be an object')
     if set(tree) == {'value'}:
-        if not _finite(tree['value']) or not -1 <= tree['value'] <= 1:
-            raise ValueError('residual-tree leaf must be finite in [-1,1]')
+        if not _finite(tree['value']) or not -leaf_bound <= tree['value'] <= leaf_bound:
+            raise ValueError('tree leaf must be finite and within artifact leaf bound')
         return
     if remaining <= 0 or set(tree) != {'feature', 'threshold', 'left', 'right'}:
         raise ValueError('invalid tree shape or depth exceeds 3')
     if type(tree['feature']) is not int or not 0 <= tree['feature'] < width or not _finite(tree['threshold']):
         raise ValueError('invalid split index/threshold')
-    _validate_tree(tree['left'], width, remaining-1)
-    _validate_tree(tree['right'], width, remaining-1)
+    _validate_tree(tree['left'], width, remaining-1, leaf_bound)
+    _validate_tree(tree['right'], width, remaining-1, leaf_bound)
 
 
 def predict(model, rows):
-    if not isinstance(model, dict) or set(model) != {'version', 'feature_names', 'initial_logit', 'learning_rate', 'trees'}:
+    if not isinstance(model, dict):
         raise ValueError('invalid model schema')
-    if model['version'] != 'boostlab_v1':
+    base_keys = {'version', 'feature_names', 'initial_logit', 'learning_rate', 'trees'}
+    if model.get('version') == 'boostlab_v1':
+        if set(model) != base_keys:
+            raise ValueError('invalid v1 model schema')
+        leaf_bound = 1.
+    elif model.get('version') == 'boostlab_v2':
+        if set(model) != base_keys | {'leaf_mode', 'l2', 'max_leaf_step'}:
+            raise ValueError('invalid v2 model schema')
+        if model['leaf_mode'] != 'newton' or not _finite(model['l2']) or not 0 <= model['l2'] <= 1e6:
+            raise ValueError('v2 requires newton leaf mode and finite l2 in [0,1000000]')
+        leaf_bound = model['max_leaf_step']
+        if not _finite(leaf_bound) or not 0 < leaf_bound <= 10:
+            raise ValueError('max_leaf_step must be finite in (0,10]')
+    else:
         raise ValueError('unsupported model version')
     _names(model['feature_names']); width = len(model['feature_names'])
     rate = model['learning_rate']; initial = model['initial_logit']; trees = model['trees']
@@ -103,7 +142,7 @@ def predict(model, rows):
     if not isinstance(trees, list) or len(trees) > 200:
         raise ValueError('model requires at most 200 residual trees')
     for tree in trees:
-        _validate_tree(tree, width)
+        _validate_tree(tree, width, leaf_bound=leaf_bound)
     x = _rows(rows, width)
     logits = [initial + rate*math.fsum(_tree_value(t, row) for t in trees) for row in x]
     if any(not math.isfinite(v) for v in logits):
@@ -115,10 +154,12 @@ def _losses(labels, logits):
     return math.fsum(logistic_loss(y, z)/len(labels) for y, z in zip(labels, logits))
 
 
-def fit(payload, rounds=80, depth=2, learning_rate=.3, min_leaf=5, patience=10):
+def fit(payload, rounds=80, depth=2, learning_rate=.3, min_leaf=5, patience=10,
+        leaf_mode="mean", l2=0., max_leaf_step=3.):
     """Fit trees on training residuals; select only the validation-best prefix.
 
-    Fixed-rate first-order updates, not Newton leaves or per-round line search.
+    Fixed-rate updates, optional capped regularized Newton leaf refinement.
+    Both modes use the same residual-SSE split structure, no line search.
     No test data field, tuning sweep, sample weights or missing values.
     """
     if not isinstance(payload, dict) or set(payload) != {'feature_names', 'train', 'validation'}:
@@ -131,29 +172,49 @@ def fit(payload, rounds=80, depth=2, learning_rate=.3, min_leaf=5, patience=10):
             raise ValueError(name + ' must be an integer in [' + str(lo) + ',' + str(hi) + ']')
     if not _finite(learning_rate) or not 0 < learning_rate <= 1:
         raise ValueError('learning_rate must be finite in (0,1]')
+    if leaf_mode not in ('mean', 'newton'):
+        raise ValueError('leaf_mode must be mean or newton')
+    if not _finite(l2) or not 0 <= l2 <= 1e6:
+        raise ValueError('l2 must be finite in [0,1000000]')
+    if not _finite(max_leaf_step) or not 0 < max_leaf_step <= 10:
+        raise ValueError('max_leaf_step must be finite in (0,10]')
+    if leaf_mode == 'mean' and (l2 != 0 or max_leaf_step != 3):
+        raise ValueError('l2/max_leaf_step apply only to newton leaves')
     pos = sum(y); initial = math.log((pos+.5)/(len(y)-pos+.5))
     z = [initial]*len(y); vz = [initial]*len(vy); trees = []
     history = [{'round': 0, 'train_logloss': _losses(y, z), 'validation_logloss': _losses(vy, vz)}]
     best_loss = history[0]['validation_logloss']; best_round = 0
     for stage in range(1, rounds+1):
-        residuals = [label-sigmoid(logit) for label, logit in zip(y, z)]
-        tree = _fit_tree(x, residuals, depth, min_leaf); trees.append(tree)
+        probabilities = [sigmoid(logit) for logit in z]
+        residuals = [label-p for label, p in zip(y, probabilities)]
+        tree = _fit_tree(x, residuals, depth, min_leaf)
+        diagnostics = None
+        if leaf_mode == 'newton':
+            tree, diagnostics = _newton_refine(tree, x, residuals,
+                                               [p*(1-p) for p in probabilities], l2, max_leaf_step)
+        trees.append(tree)
         z = [v+learning_rate*_tree_value(tree, row) for v, row in zip(z, x)]
         vz = [v+learning_rate*_tree_value(tree, row) for v, row in zip(vz, vx)]
         loss = _losses(vy, vz)
         history.append({'round': stage, 'train_logloss': _losses(y, z), 'validation_logloss': loss})
+        if diagnostics is not None:
+            history[-1]['newton_leaves'] = diagnostics
         if loss < best_loss-1e-12:
             best_loss = loss; best_round = stage
         if stage-best_round >= patience:
             break
     model = {'version': 'boostlab_v1', 'feature_names': list(payload['feature_names']),
              'initial_logit': initial, 'learning_rate': learning_rate, 'trees': trees[:best_round]}
+    if leaf_mode == 'newton':
+        model.update(version='boostlab_v2', leaf_mode='newton', l2=l2, max_leaf_step=max_leaf_step)
     last_model = dict(model, feature_names=list(model['feature_names']), trees=list(trees))
     return {'model': model, 'last_fitted_model': last_model, 'history': history,
             'selection': {'best_round': best_round, 'fitted_rounds': len(trees),
                           'validation_logloss': best_loss, 'patience': patience,
                           'rule': 'earliest prefix improving validation logloss by more than 1e-12'},
-            'scope': 'Deterministic first-order Bernoulli boosting with greedy SSE residual trees and fixed shrinkage. '
+            'scope': ('Mean residual leaves. ' if leaf_mode == 'mean' else
+                      'Capped regularized Newton leaves on residual-SSE splits, not Hessian-gain trees. ') +
+                     'Deterministic Bernoulli boosting with greedy SSE residual trees and fixed shrinkage. '
                      'Half-count smoothing for training-only initial prevalence. Validation selects the prefix, '
-                     'including zero trees. No Newton leaf updates, line search, external data, test-based selection, '
+                     'including zero trees. No line search, external data, test-based selection, '
                      'missing-value handling, causal claims or production-performance guarantee.'}
