@@ -1,9 +1,9 @@
 # BoostLab
 
-Train a binary classifier with first-order Bernoulli gradient boosting and
+Train a binary classifier with Bernoulli gradient boosting and
 shallow residual trees, from scratch. Dependency-free Python 3.10+, stable
 logit-space loss, validation-only prefix selection, versioned JSON inference,
-19 tests and an offline demo. Not XGBoost, LightGBM or sklearn compatibility.
+29 tests and an offline demo. Not XGBoost, LightGBM or sklearn compatibility.
 
 ## A trained interaction model, with the unselected control visible
 
@@ -21,14 +21,20 @@ Synthetic sign-of-product classification: independent uniform coordinates in
 | Training-prevalence constant | 0 | 0 | 0.4980 | 0.7060 |
 | Depth-1, validation-selected | 0 | 0 | 0.4980 | 0.7060 |
 | Depth-1, last fitted 80-round checkpoint | 80 (not selected) | 240 | 0.6367 | 0.7366 |
-| Depth-2, validation-selected and last fitted | 80 | 556 | 0.8906 | 0.3400 |
+| Depth-2, mean leaves, selected and last fitted | 80 | 556 | 0.8906 | 0.3400 |
+| Depth-2, Newton leaves, validation-selected | 35 | 237 | 0.9004 | 0.3341 |
+| Depth-2, Newton leaves, last fitted | 80 (not selected) | 538 | 0.8984 | 0.3469 |
 
-Both depth arms actually fit 80 rounds with rate 0.5, min_leaf 5, patience 80.
+All three arms actually fit 80 rounds with rate 0.5, min_leaf 5, patience 80.
 The unselected full-budget stump checkpoint is shown, not hidden behind prefix
 selection: it improves threshold accuracy but worsens logloss versus the
 constant on this test fixture. Selection optimizes **validation logloss**, not
 accuracy or test results. Depth-2 selected training/validation logloss is
-0.2487/0.3457. Same round budgets are not equal node capacity.
+0.2487/0.3457. Newton depth-2 uses L2=1 and maximum unshrunk leaf step 3;
+its selected training/validation logloss is 0.1777/0.3379, with zero clipped or
+zero-denominator leaves over all 80 rounds. Same round budgets are not equal
+node capacity. These settings were chosen for the demo without a Newton grid
+search; this is not a controlled isolation of curvature or regularization.
 
 These are development-fixture results, not an external benchmark, statistical
 significance result, causal isolation of depth, or universal estimator ranking.
@@ -44,8 +50,15 @@ For logit z, the per-row Bernoulli loss is
 Each round fits a deterministic greedy squared-error tree to those residuals,
 then adds `learning_rate * tree(x)` to the logit. Leaves predict mean residuals.
 
-This is a simple **fixed-rate first-order** variant: no Newton/Hessian leaf
-updates, per-leaf likelihood optimization or per-round line search. The training
+The default is unchanged **fixed-rate first-order** mean-residual leaves.
+Optional `leaf_mode="newton"` refines each leaf of the same residual-SSE tree:
+`sum(y-p) / (sum(p*(1-p)) + l2)`, bounded by `max_leaf_step` before shrinkage.
+It does not change split gain to a Hessian objective, solve each leaf's exact
+likelihood optimum, or use a line search. This is not an XGBoost clone.
+Training history records clipped and zero-denominator leaf counts per round.
+With a zero denominator the leaf returns zero, explicitly counted. With a
+nonzero denominator the cap is checked before division to avoid overflow.
+The training
 initial logit is `log((positives + 0.5)/(negatives + 0.5))`, with explicit
 half-count smoothing so single-class training sets remain finite.
 
@@ -78,13 +91,17 @@ history includes round zero and every fitted round.
 
 `model` is the selected inference artifact. `last_fitted_model` preserves the
 last checkpoint for audit, not automatic deployment. Artifacts contain version
-`boostlab_v1`, ordered feature names, initial_logit, learning_rate and trees.
+`boostlab_v1`, ordered feature names, initial_logit, learning_rate and trees for
+mean leaves. Newton models use `boostlab_v2`, also recording leaf_mode, l2 and
+max_leaf_step. Inference still accepts strict v1 artifacts, including their
+[-1,1] leaf bound; v2 leaves are checked against the recorded cap.
 Inference returns logits and probabilities without applying an external
 calibrator. JSON round trips preserve predictions in the tests.
 
 ```sh
 python -m boostlab train --input examples/train.json --rounds 6 --min-leaf 2
 # Output is a report containing model, last_fitted_model, history and selection.
+python -m boostlab train --input examples/train.json --leaf-mode newton --l2 1 --max-leaf-step 3
 python -m boostlab predict --input prediction-request.json
 # prediction-request.json is {"model": <report.model>, "rows": [[1], [10]]}
 ```
@@ -99,7 +116,9 @@ validation gate that discards fitted trees instead of forcing an improvement.
 rounds, depth 1-3, min_leaf 1-1000, patience 1-200, learning_rate in (0,1]. Rows
 are converted to binary64 floats, so large integer distinctions can be lost.
 No missing/categorical features, weights, multiclass, stochastic subsampling,
-histograms, regularized Newton leaves, feature importance or distributed work.
+histograms, Hessian-gain split construction, feature importance or distributed work.
+Newton L2 is finite in [0,1000000], step cap in (0,10]; defaults 0 and 3.
+Nondefault L2/cap options are rejected in mean mode, rather than silently ignored.
 No model download, network call or paid dependency.
 
 Validation selection can overfit a small validation set, and the caller owns
@@ -115,14 +134,16 @@ walltime or memory speedup.
 python -m unittest discover -s tests -v
 ```
 
-19 tests cover finite-difference Bernoulli gradients, extreme stable loss, hand
+29 tests cover finite-difference Bernoulli gradients, extreme stable loss, hand
 leaf/split arithmetic, a brute-force SSE root reference, min_leaf, constant and
 duplicate features, deterministic ties, adjacent floats, training descent on a
 separable fixture, validation-only prefix selection, a zero-tree rejected-model
 gate, unchanged fitted trees when validation labels change, training-only
 initial prevalence, single-class labels, strict artifacts, no input mutation,
 CLI JSON round trips and deterministic demo metrics. CI runs Python 3.10-3.13
-plus the offline demo.
+plus the offline demo. Newton checks add Hessian finite differences, hand leaf
+arithmetic, L2, caps, zero/subnormal denominators, v1/v2 round trips, strict
+artifact bounds, training independence from validation labels and CLI errors.
 
 ## Sources and credit
 
@@ -130,6 +151,7 @@ plus the offline demo.
 - [gbm guide: negative-gradient tree fitting and Bernoulli formulas](https://gbm-developers.github.io/gbm/articles/gbm.html)
 
 The gradient-boosting idea is standard. BoostLab deliberately omits the source
-algorithms' line search and Bernoulli Newton leaf refinements; it is an independent
+algorithms' line search. Its optional Newton leaves use the guide's standard
+Bernoulli ratio with explicit L2 and a step cap; it is an independent
 educational fixed-step implementation, not a reproduction of their full
 algorithms or a new method. MIT license.
