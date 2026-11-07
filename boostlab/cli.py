@@ -11,6 +11,8 @@ def main(argv=None):
     t.add_argument('--rounds',type=int,default=80);t.add_argument('--depth',type=int,default=2)
     t.add_argument('--learning-rate',type=float,default=.3);t.add_argument('--min-leaf',type=int,default=5)
     t.add_argument('--patience',type=int,default=10)
+    t.add_argument('--leaf-mode',choices=['mean','newton'],default='mean')
+    t.add_argument('--l2',type=float,default=0.);t.add_argument('--max-leaf-step',type=float,default=3.)
     p=sub.add_parser('predict');p.add_argument('--input',required=True)
     args=parser.parse_args(argv)
     try:
@@ -19,7 +21,8 @@ def main(argv=None):
             if args.input=='-':payload=json.load(sys.stdin)
             else:
                 with open(args.input,encoding='utf-8') as source:payload=json.load(source)
-            if args.command=='train':result=fit(payload,args.rounds,args.depth,args.learning_rate,args.min_leaf,args.patience)
+            if args.command=='train':result=fit(payload,args.rounds,args.depth,args.learning_rate,args.min_leaf,args.patience,
+                                                args.leaf_mode,args.l2,args.max_leaf_step)
             else:
                 if not isinstance(payload,dict) or set(payload)!={'model','rows'}:
                     raise ValueError('predict input requires model and rows only')
