@@ -41,7 +41,7 @@ python -m pip install --target /tmp/installed /tmp/wheels/boostlab-0.2.0-py3-non
 bash examples/verify_wheel.sh /tmp/installed
 ```
 
-The archive stores complete models, original fit histories and inference metrics in three small arm files. Six bounded chunks retain60full native paths; one meta file contains18edited-input paths and original demo summary. All JSON chunks are below 600KB. The exporter reproduces all three original 80-round fits and all contents without changing algorithm or selecting a new configuration. The installed package includes every artifact and all 7 modules; all 5 main commands execute outside checkout and the exporter API rebuilds the full archive. Duplicate keys now refuse at every JSON CLI input, rather than silently overwrite fields. Existing strict model v1/v2 schemas are unchanged.
+The archive stores complete models, original fit histories and inference metrics in three small arm files. Twelve bounded chunks retain60full native paths; three edited-input chunks retain 18 additional complete paths; one meta file retains the original demo summary. All JSON chunks are below 200KB. The exporter reproduces all three original 80-round fits and all contents without changing algorithm or selecting a new configuration. The installed package includes every artifact and all 7 modules; all 5 main commands execute outside checkout and the exporter API rebuilds the full archive. Duplicate keys now refuse at every JSON CLI input, rather than silently overwrite fields. Existing strict model v1/v2 schemas are unchanged.
 
 ## Independent verification
 
