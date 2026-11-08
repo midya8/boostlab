@@ -26,6 +26,21 @@ class PathTests(unittest.TestCase):
                     self.assertAlmostEqual(s['logit'],expected,places=13);self.assertEqual(s['label'],int(s['logit']>=0));count+=1
                     p=predict(dict(m,trees=m['trees'][:k]),[row]);self.assertEqual(p['logits'][0],s['logit']);self.assertEqual(p['probabilities'][0],s['probability'])
         self.assertEqual(count,4860)
+    def test_1458_edited_states_independent_fraction(self):
+        r=saved();count=0
+        for name,refs in r['edited_references'].items():
+            m=r['arms'][name]['report']['last_fitted_model']
+            for ref in refs:
+                row=ref['row'];self.assertEqual(inspect(m,row),ref);total=F()
+                for k,state in enumerate(ref['states']):
+                    if k:
+                        tree=m['trees'][k-1]
+                        while 'value' not in tree:tree=tree['left' if row[tree['feature']]<=tree['threshold'] else 'right']
+                        total+=F.from_float(tree['value'])
+                    exact=float(F.from_float(m['initial_logit'])+F.from_float(m['learning_rate'])*total)
+                    self.assertAlmostEqual(state['logit'],exact,places=13);count+=1
+        self.assertEqual(count,1458)
+
     def test_all243metrics_independent_inference(self):
         r=saved();splits=dict(zip(['train','validation','test'],fixture()))
         def leaf(t,row):
