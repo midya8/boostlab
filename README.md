@@ -3,7 +3,7 @@
 Train a binary classifier with Bernoulli gradient boosting and
 shallow residual trees, from scratch. Dependency-free Python 3.10+, stable
 logit-space loss, validation-only prefix selection, versioned JSON inference,
-29 tests and an offline demo. Not XGBoost, LightGBM or sklearn compatibility.
+36 Python tests and five Node/real-Chrome tests and an offline demo. Not XGBoost, LightGBM or sklearn compatibility.
 
 ## A trained interaction model, with the unselected control visible
 
@@ -155,3 +155,16 @@ algorithms' line search. Its optional Newton leaves use the guide's standard
 Bernoulli ratio with explicit L2 and a step cap; it is an independent
 educational fixed-step implementation, not a reproduction of their full
 algorithms or a new method. MIT license.
+
+## v0.2: keep the rejected prefix visible
+
+[Open the live training-path inspector](https://midya8.github.io/boostlab/). All 80trees and all 81prefixes remain visible for each of the three original arms, including the selected zero-tree stump. Editable coordinates produce full tree-route and additive-logit witnesses, while selected and last checkpoints stay separate. Shared zero-based loss curves retain all 243arm/prefix metrics without selecting on test. Sigmoid values are not calibrated confidence; tree terms are not feature or causal attribution.
+
+Independent checks cover 4,860 original sample/prefix states, 1,458 edited states, 78 full paths and all 243 metric states. Actual Chrome exercises every original state,180control combinations,keyboard,invalid/stale exports,clipboard/Blob and mobile. Installed reproduction imports 7 modules and runs 5 main commands plus a full archive rebuild. Original fits, selected prefixes, fixture, metric values and the development-comparison caveats above are unchanged. [PATH.md](PATH.md) gives summation differences, derivation, reproduction and sources.
+
+```sh
+python -m boostlab.path_export
+python -m boostlab path-report
+python -m boostlab path --input examples/path.json
+node --test tests/*.cjs
+```

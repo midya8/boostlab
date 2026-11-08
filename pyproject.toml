@@ -1,6 +1,6 @@
 [project]
 name = "boostlab"
-version = "0.1.0"
+version = "0.2.0"
 description = "First-order Bernoulli gradient boosting with validation prefix selection"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -8,3 +8,9 @@ license = {text = "MIT"}
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["boostlab*"]
+namespaces = false
+[tool.setuptools.package-data]
+boostlab = ["artifacts/*.json"]
