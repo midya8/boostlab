@@ -1,6 +1,6 @@
-# All fitted trees, without a new selection
+# Inspect every fitted prefix
 
-BoostLab v0.2 adds an offline live inspector to the existing synthetic experiment. The original first-order/Newton training code, data generator, budgets and model-selection rule are unchanged. Three original arms still fit 80 rounds with rate 0.5, min_leaf 5 and patience 80. Selected prefixes remain 0, 80 and 35. The source code and original README's selected/last-checkpoint numbers remain the reference, not a new comparison.
+The training-path inspector shows all fitted checkpoints from the original synthetic experiment. It does not refit or reselect a model. The first-order/Newton trainer, data generator, budgets and selection rule are unchanged. All three arms fit 80 rounds with rate 0.5, min_leaf 5 and patience 80; validation selects prefixes 0, 80 and 35. The README gives the original selected and last-fitted metrics.
 
 ## Frozen path
 
@@ -18,9 +18,9 @@ The path API validates the complete existing model with the inference surface be
 
 ## Metrics and honest axes
 
-All 243arm/prefix states include train, validation and report-only test logloss/accuracy. The test curve was not supplied to fitting or selection. The fixture was inspected during original development and patience changed previously; none of this becomes untouched evaluation by displaying more checkpoints. Prefix selection can itself overfit a finite validation set. No confidence intervals, external evaluation, calibration claim or causal isolation is supplied.
+All 243 arm/prefix states include train, validation and report-only test logloss/accuracy. The test curve was not supplied to fitting or selection. The fixture was inspected during original development and patience changed previously; none of this becomes untouched evaluation by displaying more checkpoints. Prefix selection can itself overfit a finite validation set. No confidence intervals, external evaluation, calibration claim or causal isolation is supplied.
 
-The logloss axis starts at zero and uses the same maximum across all 81prefixes and all three arms. The per-input logit path includes zero, with its own sign-aware scale. Both charts mark inspected and original-selected prefixes separately. Last/selected/zero buttons do not change the archived decision. Independent input edits affect the prediction/path, not the fixed-fixture metric curves. All discarded prefixes stay available, including the last stump's better accuracy but worse logloss versus the constant.
+The logloss axis starts at zero and uses the same maximum across all 81 prefixes and all three arms. The per-input logit path includes zero, with its own sign-aware scale. Both charts mark inspected and original-selected prefixes separately. Last/selected/zero buttons do not change the archived decision. Independent input edits affect the prediction/path, not the fixed-fixture metric curves. All discarded prefixes stay available, including the last stump's better accuracy but worse logloss versus the constant.
 
 Equal rounds are not equal stored nodes or effective capacity. Mean and capped regularized Newton leaves differ in more than curvature. Newton uses residual-SSE split selection, L2=1 and unshrunk leaf cap 3; it has no Hessian-gain split search or line search. No XGBoost/LightGBM/sklearn equivalence.
 
@@ -41,11 +41,11 @@ python -m pip install --target /tmp/installed /tmp/wheels/boostlab-0.2.0-py3-non
 bash examples/verify_wheel.sh /tmp/installed
 ```
 
-The archive stores complete models, original fit histories and inference metrics in three small arm files. Twelve bounded chunks retain60full native paths; three edited-input chunks retain 18 additional complete paths; one meta file retains the original demo summary. All JSON chunks are below 200KB. The exporter reproduces all three original 80-round fits and all contents without changing algorithm or selecting a new configuration. The installed package includes every artifact and all 7 modules; all 5 main commands execute outside checkout and the exporter API rebuilds the full archive. Duplicate keys now refuse at every JSON CLI input, rather than silently overwrite fields. Existing strict model v1/v2 schemas are unchanged.
+The archive stores complete models, original fit histories and inference metrics in three small arm files. Twelve bounded chunks retain 60 full native paths; three edited-input chunks retain 18 additional complete paths; one meta file retains the original demo summary. All JSON chunks are below 200 KB. The exporter reproduces all three original 80-round fits and all contents without changing algorithm or selecting a new configuration. The installed package includes every artifact and all 7 modules; all 5 main commands execute outside checkout and the exporter API rebuilds the full archive. Duplicate keys now refuse at every JSON CLI input, rather than silently overwrite fields. Existing strict model v1/v2 schemas are unchanged.
 
 ## Independent verification
 
-- 4,860 sample/prefix states (3 arms x 20 first test inputs x 81 prefixes), every logit, probability and label,60 complete tree-route witnesses. The native reference includes independent exact Fraction sums and separate recursive tree traversal.
+- 4,860 sample/prefix states (3 arms x 20 first test inputs x 81 prefixes), every logit, probability and label, 60 complete tree-route witnesses. The native reference includes independent exact Fraction sums and separate recursive tree traversal.
 - All 243 arm/prefix metric states, all original 256/128/512 rows in each split. A separate scalar inference/softplus calculation checks loss/accuracy without the archived metric helper.
 - 18 edited paths and 1,458 prefix states, zero/boundary/extreme finite queries, exact threshold ties and adjacent binary64 values, constant prefix, strict invalid schemas and nonmutation.
 - Actual Chrome all 4,860 states and 60 routes; 180 arm/input/round control states, physical slider key, original label dropped after edit, invalid export refusal, blocked/successful clipboard, actual JSON Blob and expanded 320/390/1280 layouts.
@@ -60,4 +60,4 @@ The archive stores complete models, original fit histories and inference metrics
 - [Python math.fsum](https://docs.python.org/3/library/math.html): accurate floating sums, not an exact-real guarantee.
 - [Python floating-point tutorial](https://docs.python.org/3/tutorial/floatingpoint.html): representation and operation-order limits.
 
-Original Friedman 2001citation remains in README/DESIGN.md. Established gradient boosting, original educational code. No paid dependency, private data, telemetry, uploads or remote model. MIT; attribution is not endorsement.
+Original Friedman 2001 citation remains in README/DESIGN.md. Established gradient boosting, original educational code. No paid dependency, private data, telemetry, uploads or remote model. MIT; attribution is not endorsement.
