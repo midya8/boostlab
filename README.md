@@ -1,11 +1,15 @@
 # BoostLab
 
-Train a binary classifier with Bernoulli gradient boosting and
-shallow residual trees, from scratch. Dependency-free Python 3.10+, stable
-logit-space loss, validation-only prefix selection, versioned JSON inference,
-36 Python tests and five Node/real-Chrome tests and an offline demo. Not XGBoost, LightGBM or sklearn compatibility.
+Train a binary classifier with shallow residual trees and inspect every fitted
+prefix. BoostLab uses Bernoulli gradient boosting with fixed-rate mean leaves
+or optional capped Newton leaves. Validation logloss selects a prefix;
+selected and last-fitted models are returned separately.
 
-## A trained interaction model, with the unselected control visible
+Python 3.10+, standard library only. The current suite has 36 Python tests and
+five Node/actual-Chrome tests. This is a small educational implementation,
+not XGBoost, LightGBM or sklearn compatibility.
+
+## The interaction fixture
 
 ```sh
 python -m boostlab demo
@@ -58,8 +62,7 @@ likelihood optimum, or use a line search. This is not an XGBoost clone.
 Training history records clipped and zero-denominator leaf counts per round.
 With a zero denominator the leaf returns zero, explicitly counted. With a
 nonzero denominator the cap is checked before division to avoid overflow.
-The training
-initial logit is `log((positives + 0.5)/(negatives + 0.5))`, with explicit
+The training initial logit is `log((positives + 0.5)/(negatives + 0.5))`, with explicit
 half-count smoothing so single-class training sets remain finite.
 
 Tree candidates sort each feature and test splits between distinct observed
@@ -134,7 +137,8 @@ walltime or memory speedup.
 python -m unittest discover -s tests -v
 ```
 
-29 tests cover finite-difference Bernoulli gradients, extreme stable loss, hand
+The earlier 29-test suite remains within the current 36 tests. It covers
+finite-difference Bernoulli gradients, extreme stable loss, hand
 leaf/split arithmetic, a brute-force SSE root reference, min_leaf, constant and
 duplicate features, deterministic ties, adjacent floats, training descent on a
 separable fixture, validation-only prefix selection, a zero-tree rejected-model
@@ -156,11 +160,11 @@ Bernoulli ratio with explicit L2 and a step cap; it is an independent
 educational fixed-step implementation, not a reproduction of their full
 algorithms or a new method. MIT license.
 
-## v0.2: keep the rejected prefix visible
+## Inspect the training path
 
-[Open the live training-path inspector](https://midya8.github.io/boostlab/). All 80trees and all 81prefixes remain visible for each of the three original arms, including the selected zero-tree stump. Editable coordinates produce full tree-route and additive-logit witnesses, while selected and last checkpoints stay separate. Shared zero-based loss curves retain all 243arm/prefix metrics without selecting on test. Sigmoid values are not calibrated confidence; tree terms are not feature or causal attribution.
+[Open the live training-path inspector](https://midya8.github.io/boostlab/). All 80 trees and all 81 prefixes remain visible for each of the three original arms, including the selected zero-tree stump. Editable coordinates produce full tree-route and additive-logit witnesses, while selected and last checkpoints stay separate. Shared zero-based loss curves retain all 243 arm/prefix metrics without selecting on test. Sigmoid values are not calibrated confidence; tree terms are not feature or causal attribution.
 
-Independent checks cover 4,860 original sample/prefix states, 1,458 edited states, 78 full paths and all 243 metric states. Actual Chrome exercises every original state,180control combinations,keyboard,invalid/stale exports,clipboard/Blob and mobile. Installed reproduction imports 7 modules and runs 5 main commands plus a full archive rebuild. Original fits, selected prefixes, fixture, metric values and the development-comparison caveats above are unchanged. [PATH.md](PATH.md) gives summation differences, derivation, reproduction and sources.
+Independent checks cover 4,860 original sample/prefix states, 1,458 edited states, 78 full paths and all 243 metric states. Actual Chrome exercises every original state, 180 control combinations, keyboard, invalid/stale exports, clipboard/Blob and mobile. Installed reproduction imports 7 modules and runs 5 main commands plus a full archive rebuild. Original fits, selected prefixes, fixture, metric values and the development-comparison caveats above are unchanged. [PATH.md](PATH.md) gives summation differences, derivation, reproduction and sources.
 
 ```sh
 python -m boostlab.path_export

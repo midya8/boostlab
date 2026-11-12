@@ -1,4 +1,8 @@
-# BoostLab design
+# BoostLab method notes
+
+These notes describe the fitted trees, optional leaf refinement, validation
+prefix selection and numerical limits. [PATH.md](PATH.md) covers the separate
+training-path inspector and its independent inference checks.
 
 ## Model and objective
 
