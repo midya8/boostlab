@@ -5,7 +5,7 @@ prefix. BoostLab uses Bernoulli gradient boosting with fixed-rate mean leaves
 or optional capped Newton leaves. Validation logloss selects a prefix;
 selected and last-fitted models are returned separately.
 
-Python 3.10+, standard library only. The current suite has 36 Python tests and
+Python 3.10+, standard library only. The current suite has 41 Python tests and
 five Node/actual-Chrome tests. This is a small educational implementation,
 not XGBoost, LightGBM or sklearn compatibility.
 
@@ -137,7 +137,7 @@ walltime or memory speedup.
 python -m unittest discover -s tests -v
 ```
 
-The earlier 29-test suite remains within the current 36 tests. It covers
+The earlier 29-test suite remains within the current 41 tests. It covers
 finite-difference Bernoulli gradients, extreme stable loss, hand
 leaf/split arithmetic, a brute-force SSE root reference, min_leaf, constant and
 duplicate features, deterministic ties, adjacent floats, training descent on a
@@ -148,6 +148,39 @@ CLI JSON round trips and deterministic demo metrics. CI runs Python 3.10-3.13
 plus the offline demo. Newton checks add Hessian finite differences, hand leaf
 arithmetic, L2, caps, zero/subnormal denominators, v1/v2 round trips, strict
 artifact bounds, training independence from validation labels and CLI errors.
+
+## Bounded coordinate slices
+
+`coordinate_slice` partitions a closed range of one feature while holding the
+other coordinates fixed. It returns every threshold cell, inclusive binary64
+endpoints, the constant logit/probability/label in that cell and a full tree-route
+witness. This is a complete partition of that represented input range, not a
+sampling grid. Threshold ties belong to the left branch; the next cell starts
+at the next representable float. Large integer thresholds keep Python's exact
+integer-versus-float comparison semantics. Unreachable branches can add redundant
+cuts, so the partition need not be minimal.
+
+```python
+from boostlab.slices import coordinate_slice
+slice_report = coordinate_slice(report["model"], [0.5], 0, -1.0, 4.0)
+for cell in slice_report["cells"]:
+    print(cell["lower"], cell["upper"], cell["logit"], cell["label"])
+```
+
+The API uses the same fixed-artifact logit summation as `predict`, with label 1
+at logit zero. It does not retrain, select a different prefix, vary the other
+features or find a multidimensional robustness radius. The range is over finite
+binary64 inputs, not all real numbers. Sigmoid values remain uncalibrated, and
+varying a coordinate is not evidence of a causal intervention. Existing artifact,
+row and model-size bounds apply. At most 1,400 tree split cuts yield 1,401 cells.
+
+Five new tests cover adjacent floats, signed-zero boundaries, extreme endpoints,
+large integer thresholds, singleton ranges, constant models, irrelevant branches,
+60 generated ensembles on both features, both fit modes and all three archived
+arms' selected/last artifacts. Cell endpoints, interior points, logits and full
+branch choices are checked. The installed wheel replays all 12 archived
+arm/checkpoint/feature slices outside the checkout. These finite regression
+checks are not an independent certificate of all fitted trees.
 
 ## Sources and credit
 
@@ -164,7 +197,7 @@ algorithms or a new method. MIT license.
 
 [Open the live training-path inspector](https://midya8.github.io/boostlab/). All 80 trees and all 81 prefixes remain visible for each of the three original arms, including the selected zero-tree stump. Editable coordinates produce full tree-route and additive-logit witnesses, while selected and last checkpoints stay separate. Shared zero-based loss curves retain all 243 arm/prefix metrics without selecting on test. Sigmoid values are not calibrated confidence; tree terms are not feature or causal attribution.
 
-Independent checks cover 4,860 original sample/prefix states, 1,458 edited states, 78 full paths and all 243 metric states. Actual Chrome exercises every original state, 180 control combinations, keyboard, invalid/stale exports, clipboard/Blob and mobile. Installed reproduction imports 7 modules and runs 5 main commands plus a full archive rebuild. Original fits, selected prefixes, fixture, metric values and the development-comparison caveats above are unchanged. [PATH.md](PATH.md) gives summation differences, derivation, reproduction and sources.
+Independent checks cover 4,860 original sample/prefix states, 1,458 edited states, 78 full paths and all 243 metric states. Actual Chrome exercises every original state, 180 control combinations, keyboard, invalid/stale exports, clipboard/Blob and mobile. Installed reproduction imports 8 modules and runs 5 main commands plus a full archive rebuild. Original fits, selected prefixes, fixture, metric values and the development-comparison caveats above are unchanged. [PATH.md](PATH.md) gives summation differences, derivation, reproduction and sources.
 
 ```sh
 python -m boostlab.path_export
