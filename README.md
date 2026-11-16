@@ -6,7 +6,7 @@ or optional capped Newton leaves. Validation logloss selects a prefix;
 selected and last-fitted models are returned separately.
 
 Python 3.10+, standard library only. The current suite has 41 Python tests and
-five Node/actual-Chrome tests. This is a small educational implementation,
+eight Node/actual-Chrome tests (including three startup-helper tests). This is a small educational implementation,
 not XGBoost, LightGBM or sklearn compatibility.
 
 ## The interaction fixture
@@ -220,3 +220,17 @@ python -m boostlab path-report
 python -m boostlab path --input examples/path.json
 node --test tests/*.cjs
 ```
+
+## Browser startup checks
+
+The merged installed-suite release passed Python and wheel jobs, but its main
+browser job failed before the first inference assertion: Chrome did not write
+its debugger port file within the startup wait. DBus diagnostics alone do not
+identify the cause. CI now provisions Chrome explicitly and prints its version.
+The test waits up to 60 seconds for a complete valid port line, then uses the
+existing HTTP-readiness check. It does not restart Chrome or retry model,
+export or layout assertions. Hosted verification of this change is pending.
+
+Helper tests cover delayed and partial files, invalid ports, read errors,
+browser exit and a bounded deadline. The model, reports, browser application,
+reference fixtures and numerical tolerances are unchanged.

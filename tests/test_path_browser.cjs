@@ -1,14 +1,15 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process');
 require('../docs/data.js');
-const {waitForDebugger}=require('./chrome_support.js');
+const {waitForDebugger,waitForDevToolsPort}=require('./chrome_support.js');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 test('real Chrome4860prefixstates180controls60routes, keyboard, input invalidation, clipboard/Blob and mobile', {timeout:120000}, async()=>{
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'boostlab-browser-'));
  const browser=spawn(process.env.CHROME_BIN||'google-chrome',['--headless','--no-sandbox','--disable-gpu','--disable-extensions','--disable-dev-shm-usage','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'],{stdio:['ignore','ignore','pipe']});let ws,startupError,diagnostics='';browser.on('error',e=>startupError=e);browser.stderr.on('data',d=>diagnostics=(diagnostics+d).slice(-4000));
  try{
-  for(let i=0;i<1200&&!startupError&&browser.exitCode===null&&!fs.existsSync(path.join(profile,'DevToolsActivePort'));i++)await delay(25);
-  assert.ok(fs.existsSync(path.join(profile,'DevToolsActivePort')),`Chrome debugger did not start: ${startupError?.message||diagnostics||browser.exitCode}`);const port=fs.readFileSync(path.join(profile,'DevToolsActivePort'),'utf8').split('\n')[0];
+  let port;
+  try {port=await waitForDevToolsPort(path.join(profile,'DevToolsActivePort'),{alive:()=>browser.exitCode===null&&browser.signalCode===null&&!startupError});}
+  catch(error){throw new Error(`${error.message}: ${startupError?.message||diagnostics||browser.exitCode}`,{cause:error});}
   const tab=await waitForDebugger(`http://127.0.0.1:${port}/json/list`,{alive:()=>browser.exitCode===null&&!startupError});ws=new WebSocket(tab.webSocketDebuggerUrl);await new Promise((res,rej)=>{ws.onopen=res;ws.onerror=rej;});
   let seq=0;const pending=new Map();ws.onmessage=e=>{const m=JSON.parse(e.data);if(pending.has(m.id)){const {res,rej}=pending.get(m.id);pending.delete(m.id);m.error?rej(new Error(JSON.stringify(m.error))):res(m.result);}};
   const call=(method,params={})=>new Promise((res,rej)=>{const id=++seq;pending.set(id,{res,rej});ws.send(JSON.stringify({id,method,params}));});
