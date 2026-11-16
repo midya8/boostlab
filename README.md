@@ -149,6 +149,21 @@ plus the offline demo. Newton checks add Hessian finite differences, hand leaf
 arithmetic, L2, caps, zero/subnormal denominators, v1/v2 round trips, strict
 artifact bounds, training independence from validation labels and CLI errors.
 
+For the full installed replay, run `python examples/check_installed.py` after
+installing setuptools and wheel. It builds a wheel in a fresh environment and
+runs all 41 existing Python tests outside the checkout. Eight installed module
+origins are checked before and after. Copied tests, examples and browser bundles
+contain no library Python source. The existing independent Fraction references,
+all archived paths and complete refits remain in the suite.
+
+The command replay compares six full reports across all five CLI modes, including
+mean and Newton training. The exporter API also repeats all three 80-round fits
+and compares every byte of all 19 archive files and four browser data files.
+These are same-runtime source/wheel comparisons, not new numerical or statistical
+evidence. The package has a module CLI, not a console script. Use `--section tests`
+or `--section commands` to run either half. CI runs both in a separate job while
+keeping the original wheel job and numerical tolerances.
+
 ## Bounded coordinate slices
 
 `coordinate_slice` partitions a closed range of one feature while holding the
