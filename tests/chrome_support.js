@@ -10,3 +10,28 @@ async function waitForDebugger(url,{fetchFn=globalThis.fetch,sleep=ms=>new Promi
  throw new Error('Chrome debugger endpoint did not become ready: '+(last?.message||'browser exited'),{cause:last});
 }
 module.exports={waitForDebugger};
+
+// A port file may be absent or partially written while Chrome starts. Wait for
+// its complete port line, bounded by elapsed time. Do not restart the browser
+// or retry any inference, export or layout assertion.
+async function waitForDevToolsPort(file, {
+  readFile=()=>require('node:fs').promises.readFile(file,'utf8'),
+  sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),
+  now=()=>performance.now(), alive=()=>true, timeoutMs=60000, pollMs=25
+}={}) {
+  const deadline=now()+timeoutMs;
+  while (alive() && now()<deadline) {
+    try {
+      const text=await readFile();
+      const match=/^(\d+)\r?\n/.exec(text);
+      if (match) {
+        const port=Number(match[1]);
+        if (port>=1 && port<=65535) return port;
+        throw Error('Chrome wrote an invalid debugger port');
+      }
+    } catch(error) { if(error.code!=='ENOENT') throw error; }
+    await sleep(pollMs);
+  }
+  throw Error(alive() ? 'Chrome debugger port deadline exceeded' : 'Chrome exited before debugger port readiness');
+}
+module.exports.waitForDevToolsPort=waitForDevToolsPort;
