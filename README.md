@@ -1,7 +1,7 @@
-# BoostLab
+# Logit boosting
 
 Train a binary classifier with shallow residual trees and inspect every fitted
-prefix. BoostLab uses Bernoulli gradient boosting with fixed-rate mean leaves
+prefix. Logit boosting uses Bernoulli gradient boosting with fixed-rate mean leaves
 or optional capped Newton leaves. Validation logloss selects a prefix;
 selected and last-fitted models are returned separately.
 
@@ -202,7 +202,7 @@ checks are not an independent certificate of all fitted trees.
 - [Friedman (2001), Greedy Function Approximation: A Gradient Boosting Machine](https://doi.org/10.1214/aos/1013203451)
 - [gbm guide: negative-gradient tree fitting and Bernoulli formulas](https://gbm-developers.github.io/gbm/articles/gbm.html)
 
-The gradient-boosting idea is standard. BoostLab deliberately omits the source
+The gradient-boosting idea is standard. Logit boosting deliberately omits the source
 algorithms' line search. Its optional Newton leaves use the guide's standard
 Bernoulli ratio with explicit L2 and a step cap; it is an independent
 educational fixed-step implementation, not a reproduction of their full
@@ -210,7 +210,7 @@ algorithms or a new method. MIT license.
 
 ## Inspect the training path
 
-[Open the live training-path inspector](https://midya8.github.io/boostlab/). All 80 trees and all 81 prefixes remain visible for each of the three original arms, including the selected zero-tree stump. Editable coordinates produce full tree-route and additive-logit witnesses, while selected and last checkpoints stay separate. Shared zero-based loss curves retain all 243 arm/prefix metrics without selecting on test. Sigmoid values are not calibrated confidence; tree terms are not feature or causal attribution.
+[Open the live training-path inspector](https://midya8.github.io/logit-boosting/). All 80 trees and all 81 prefixes remain visible for each of the three original arms, including the selected zero-tree stump. Editable coordinates produce full tree-route and additive-logit witnesses, while selected and last checkpoints stay separate. Shared zero-based loss curves retain all 243 arm/prefix metrics without selecting on test. Sigmoid values are not calibrated confidence; tree terms are not feature or causal attribution.
 
 Independent checks cover 4,860 original sample/prefix states, 1,458 edited states, 78 full paths and all 243 metric states. Actual Chrome exercises every original state, 180 control combinations, keyboard, invalid/stale exports, clipboard/Blob and mobile. Installed reproduction imports 8 modules and runs 5 main commands plus a full archive rebuild. Original fits, selected prefixes, fixture, metric values and the development-comparison caveats above are unchanged. [PATH.md](PATH.md) gives summation differences, derivation, reproduction and sources.
 
